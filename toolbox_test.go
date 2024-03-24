@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"testing"
 	"time"
@@ -197,7 +198,7 @@ func TestJobsMiddleware(t *testing.T) {
 
 	// Add a new consumer
 	if err := jobBox.On(
-		jobs.Consumer[MyData2](func(ctx context.Context, data MyData2) error {
+		jobs.Consumer(func(ctx context.Context, data MyData2) error {
 			slog.Info("received", slog.Any("data", data))
 			return nil
 		}),
@@ -205,8 +206,17 @@ func TestJobsMiddleware(t *testing.T) {
 		t.Error(err)
 	}
 
-	if err := jobBox.Send(MyData2{Msg: "Hello World"}); err != nil {
+	if err := jobBox.Push(MyData2{Msg: "Hello World"}); err != nil {
 		t.Error(err)
+	}
+
+	jobs, err := jobBox.GetJobs()
+	if err != nil {
+		t.Error(err)
+	}
+
+	for _, v := range jobs {
+		fmt.Println(v)
 	}
 
 }
