@@ -205,6 +205,7 @@ func (t *JobsMiddleware) OnClose(db *sql.DB) error {
 }
 
 // When job was inserted, we will call the consumer while gathering metrics
+// TODO @droman: when we receive a job, we should push it to a queue and have a goroutine that process it so we can have a better performance
 func (t *JobsMiddleware) OnInsert(conn *sqlite3.SQLiteConn, db string, table string, rowid int64) error {
 	if table != "jobs" {
 		return nil
