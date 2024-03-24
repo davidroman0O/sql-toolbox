@@ -201,6 +201,7 @@ func TestJobsMiddleware(t *testing.T) {
 		jobs.Consumer(func(ctx context.Context, data MyData2) error {
 			slog.Info("received", slog.Any("data", data))
 			return nil
+			// return fmt.Errorf("failed do to something")
 		}),
 	); err != nil {
 		t.Error(err)

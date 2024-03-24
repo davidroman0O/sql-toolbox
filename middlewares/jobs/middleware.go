@@ -155,7 +155,8 @@ func (t *JobsMiddleware) GetJobs() ([]job[any], error) {
 		var createdAt int64
 		var updatedAt int64
 		var payload string
-		err := results.Scan(&j.ID, &j.Type, &payload, &j.State, &createdAt, &updatedAt, &j.Error)
+		var errorS *string
+		err := results.Scan(&j.ID, &j.Type, &payload, &j.State, &createdAt, &updatedAt, &errorS)
 		if err != nil {
 			return nil, err
 		}
@@ -164,6 +165,9 @@ func (t *JobsMiddleware) GetJobs() ([]job[any], error) {
 		if updatedAt != 0 {
 			updatedAtTime := time.Unix(0, updatedAt)
 			j.UpdatedAt = &updatedAtTime
+		}
+		if errorS != nil {
+			j.Error = errorS
 		}
 
 		oneConsumer := t.consumers[j.Type]
@@ -262,17 +266,17 @@ func (t *JobsMiddleware) OnInsert(conn *sqlite3.SQLiteConn, db string, table str
 		var err error
 		if !result[0].IsNil() {
 			if errCast, ok := result[0].Interface().(error); ok {
-				err = errCast
 				nextState = Failed
-				if _, err := conn.Exec(`UPDATE jobs SET status = ?, updated_at = ?, error = ? WHERE id = ?`, []driver.Value{string(nextState), time.Now().UnixNano(), err.Error(), job.ID}); err != nil {
+				if _, err = conn.Exec(`UPDATE jobs SET status = ?, updated_at = ?, error = ? WHERE id = ?`, []driver.Value{string(nextState), time.Now().UnixNano(), errCast.Error(), job.ID}); err != nil {
 					return err
 				}
+				continue
 			} else {
 				return fmt.Errorf("consumer function must return an error")
 			}
 		}
 		nextState = Success
-		if _, err := conn.Exec(`UPDATE jobs SET status = ?, updated_at = ? WHERE id = ?`, []driver.Value{string(nextState), time.Now().UnixNano(), job.ID}); err != nil {
+		if _, err = conn.Exec(`UPDATE jobs SET status = ?, updated_at = ? WHERE id = ?`, []driver.Value{string(nextState), time.Now().UnixNano(), job.ID}); err != nil {
 			return err
 		}
 	}
