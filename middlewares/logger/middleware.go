@@ -1,9 +1,9 @@
 package logger
 
 import (
-	"database/sql"
 	"log"
 
+	"github.com/davidroman0O/sqlite-toolbox/data"
 	"github.com/mattn/go-sqlite3"
 )
 
@@ -13,12 +13,12 @@ func New() *LoggerMiddleware {
 
 type LoggerMiddleware struct{}
 
-func (l *LoggerMiddleware) OnInit(db *sql.DB) error {
+func (l *LoggerMiddleware) OnInit(muxdb *data.MuxDb) error {
 	log.Println("Logger middleware initialized")
 	return nil
 }
 
-func (l *LoggerMiddleware) OnClose(db *sql.DB) error {
+func (l *LoggerMiddleware) OnClose() error {
 	log.Println("Logger middleware closed")
 	return nil
 }

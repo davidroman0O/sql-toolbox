@@ -1,87 +1,106 @@
-package sqlitetoolbox
+package adaptersqlite3
 
 import (
 	"fmt"
-	"os"
+
+	"github.com/davidroman0O/sqlite-toolbox/data"
 )
 
 // Configuration for the database connection
 type dbConfig struct {
 	name     string
-	mode     Option[dbMode]
-	file     Option[dbFile]
-	mutex    Option[dbMutex]
-	cache    Option[dbCache]
+	mode     data.Option[dbMode]
+	file     data.Option[dbFile]
+	mutex    data.Option[dbMutex]
+	cache    data.Option[dbCache]
 	filePath string
 }
 
-type dbOption func(*dbConfig)
+type SqliteOption func(*dbConfig)
 
 // Mode of the connection
-func DBWithMode(value dbMode) dbOption {
+func DBWithMode(value dbMode) SqliteOption {
 	return func(config *dbConfig) {
 		config.mode.Enable(value)
 	}
 }
 
-func DBWithName(value string) dbOption {
+func DBWithName(value string) SqliteOption {
 	return func(config *dbConfig) {
 		config.name = value
 	}
 }
 
 // Proactively append `.db` and concatenante `/` between path and name
-func DBWithFile(path string, name string) dbOption {
+func DBWithFile(path string, name string) SqliteOption {
 	return func(config *dbConfig) {
 		config.file.Enable(dbFile(fmt.Sprintf("%v/%v.db", path, name)))
 		config.filePath = fmt.Sprintf("%v/%v.db", path, name)
 	}
 }
 
-func DBWithNoMutex() dbOption {
+func DBWithNoMutex() SqliteOption {
 	return func(config *dbConfig) {
 		config.mutex.Enable(dbMutex(false))
 	}
 }
 
-func DBWithFullMutex() dbOption {
+func DBWithFullMutex() SqliteOption {
 	return func(config *dbConfig) {
 		config.mutex.Enable(dbMutex(true))
 	}
 }
 
-func DBWithCacheShared() dbOption {
+func DBWithCacheShared() SqliteOption {
 	return func(config *dbConfig) {
 		config.cache.Enable(true)
 	}
 }
 
-func DBWithCachePrivate() dbOption {
+func DBWithCachePrivate() SqliteOption {
 	return func(config *dbConfig) {
 		config.cache.Enable(false)
 	}
 }
 
+// `Memory` profile options
+func WithMemory() []SqliteOption {
+	opts := []SqliteOption{
+		DBWithMode(Memory),
+		DBWithCacheShared(),
+	}
+	return opts
+}
+
+func WithFile() []SqliteOption {
+	opts := []SqliteOption{
+		DBWithMode(OpenCreateReadWrite),
+		DBWithName("db"),
+		DBWithCacheShared(),
+	}
+	return opts
+}
+
 // Supposed easy configuration through dependency injection
-func NewSettingConfig(options ...dbOption) *dbConfig {
+func NewSettingConfig(options ...SqliteOption) *dbConfig {
 	// with defaults
 	config := &dbConfig{
 		name: "sqlite3-extended",
-		mode: Option[dbMode]{
+		mode: data.Option[dbMode]{
 			Env:     "DB_MODE",
 			Enabled: true,
 			Value:   Memory,
 		},
-		file: Option[dbFile]{
+		file: data.Option[dbFile]{
 			Env:     "DB_FILE",
 			Enabled: false,
 			Value:   dbFile(fmt.Sprintf("%v/%v.db", ".", "gogog")),
 		},
-		mutex: Option[dbMutex]{
+		mutex: data.Option[dbMutex]{
 			Env:     "DB_MUTEX",
 			Enabled: false,
 		},
-		cache: Option[dbCache]{
+		cache: data.Option[dbCache]{
 			Env:     "DB_CACHE",
 			Enabled: false,
 		},
@@ -118,17 +137,11 @@ func ConnectionString(config *dbConfig) (string, error) {
 	}
 
 	if config.mode.Value == Memory {
-		// :memory:?mode=YYY
-		return fmt.Sprintf(":memory:?%v", queueStr), nil
+		// if you want to avoid "no such table"
+		return fmt.Sprintf("file::memory:?cache=shared&%v", queueStr), nil
+		// return fmt.Sprintf(":memory:?%v", queueStr), nil
 	}
 
 	// file:XXX?mode=YYY&{key}={value}&
 	return fmt.Sprintf("%v?%v", config.file.String(), queueStr), nil
-}
-
-func getEnvDefault(key, defaultValue string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
-	}
-	return defaultValue
 }

@@ -1,7 +1,6 @@
-package sqlitetoolbox
+package sqltoolbox
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -9,17 +8,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidroman0O/sqlite-toolbox/middlewares/jobs"
+	adaptersqlite3 "github.com/davidroman0O/sqlite-toolbox/adapters/sqlite3"
 	"github.com/davidroman0O/sqlite-toolbox/middlewares/logger"
+	"github.com/davidroman0O/sqlite-toolbox/middlewares/tasks"
+	"github.com/k0kubun/pp/v3"
 )
 
 func TestOpenCloseMemory(t *testing.T) {
 	var toolbox *Toolbox
 	var err error
+
 	if toolbox, err = New(
-		WithDBConfig(
-			DBWithName("openclose_test"),
-			DBWithMode(Memory))); err != nil {
+		WithSqlite3(
+			adaptersqlite3.WithMemory()..., // gives a default
+		), // should instantiate a default in memory sqlite3 database
+	); err != nil {
 		t.Error(err)
 	}
 
@@ -63,9 +66,8 @@ func TestCreateTableMemory(t *testing.T) {
 	var err error
 	if toolbox, err = New(
 		WithMiddleware(logger.New()),
-		WithDBConfig(
-			DBWithName("createtable_test"),
-			DBWithMode(Memory))); err != nil {
+		WithSqlite3(),
+	); err != nil {
 		t.Error(err)
 	}
 
@@ -176,11 +178,13 @@ func TestJobsMiddleware(t *testing.T) {
 
 	// prepare the whole toolbox
 	if toolbox, err = New(
+		WithSqlite3(
+			adaptersqlite3.WithMemory()..., // gives a default
+		),
 		WithMiddleware(
-			jobs.New()), // simple creation of the jobs middleware
-		WithDBConfig(
-			DBWithName("job_test"),
-			DBWithMode(Memory))); err != nil {
+			tasks.New(),
+		),
+	); err != nil {
 		t.Error(err)
 	}
 
@@ -191,27 +195,27 @@ func TestJobsMiddleware(t *testing.T) {
 	}()
 
 	// that's how you should find it back
-	jobBox, err := FindMiddleware[jobs.JobsMiddleware](toolbox)
+	jobBox, err := FindMiddleware[tasks.TasksMiddleware](toolbox)
 	if err != nil {
 		t.Error(err)
 	}
 
-	// Add a new consumer
-	if err := jobBox.On(
-		jobs.Consumer(func(ctx context.Context, data MyData2) error {
-			slog.Info("received", slog.Any("data", data))
-			return nil
-			// return fmt.Errorf("failed do to something")
-		}),
-	); err != nil {
+	if err := jobBox.Register(tasks.NewHandler[MyData2](
+		func() func(data MyData2) error {
+			return func(data MyData2) error {
+				pp.Println("ping", data)
+				return nil
+			}
+		},
+	)); err != nil {
 		t.Error(err)
 	}
 
-	if err := jobBox.Push(MyData2{Msg: "Hello World"}); err != nil {
+	if err := jobBox.Send(MyData2{Msg: "hello"}); err != nil {
 		t.Error(err)
 	}
 
-	jobs, err := jobBox.GetJobs()
+	jobs, err := jobBox.GetTasksByState(tasks.Completed)
 	if err != nil {
 		t.Error(err)
 	}

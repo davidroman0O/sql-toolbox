@@ -1,4 +1,4 @@
-package sqlitetoolbox
+package data
 
 import "database/sql"
 

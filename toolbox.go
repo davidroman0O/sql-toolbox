@@ -1,23 +1,23 @@
-package sqlitetoolbox
+package sqltoolbox
 
 import (
 	"database/sql"
 	"fmt"
-	"log/slog"
-	"os"
 	"reflect"
 
-	"github.com/mattn/go-sqlite3"
+	adaptersqlite3 "github.com/davidroman0O/sqlite-toolbox/adapters/sqlite3"
+	"github.com/davidroman0O/sqlite-toolbox/data"
 )
 
 type Toolbox struct {
-	db     *sql.DB
+	// db     *sql.DB
+	*data.MuxDb
 	config *initConfig
 }
 
-func (t *Toolbox) Do(cb DoFn) error {
-	return cb(t.db)
-}
+// func (t *Toolbox) Do(cb data.DoFn) error {
+// 	return cb(t.db)
+// }
 
 type findConfig struct {
 }
@@ -32,7 +32,7 @@ func FindMiddleware[T any](t *Toolbox, opts ...findOptions) (*T, error) {
 		}
 	}
 
-	for _, middleware := range t.config.middlewareManager.middlewares {
+	for _, middleware := range t.config.middlewareManager.Middlewares {
 		if reflect.TypeOf(middleware) == reflect.TypeFor[*T]() {
 			var inter interface{} = middleware
 			base := inter.(*T)
@@ -43,41 +43,21 @@ func FindMiddleware[T any](t *Toolbox, opts ...findOptions) (*T, error) {
 	return nil, fmt.Errorf("middleware not found")
 }
 
-// func (t *Toolbox) FindMiddleware(middlewareType reflect.Type) (Middleware, error) {
-
-// 	for _, middleware := range t.config.middlewareManager.middlewares {
-// 		if reflect.TypeOf(middleware) == middlewareType {
-// 			return middleware, nil
-// 		}
-// 	}
-
-// 	return nil, fmt.Errorf("middleware not found")
-// }
-
 type initConfig struct {
-	db                *dbConfig
-	middlewareManager *MiddlewareManager
+	connector         DatabaseConnector
+	middlewareManager *data.MiddlewareManager
 }
 
 type initOpts func(*initConfig) error
 
-func WithDBConfig(opts ...dbOption) initOpts {
+func WithSqlite3(opts ...adaptersqlite3.SqliteOption) initOpts {
 	return func(config *initConfig) error {
-		config.db = NewSettingConfig(opts...)
+		config.connector = *adaptersqlite3.NewSqlite3Connector(opts...)
 		return nil
 	}
 }
 
-func WithDBMemory() initOpts {
-	return func(config *initConfig) error {
-		config.db = NewSettingConfig(
-			DBWithMode(Memory),
-		)
-		return nil
-	}
-}
-
-func WithMiddleware(middleware Middleware) initOpts {
+func WithMiddleware(middleware data.Middleware) initOpts {
 	return func(ic *initConfig) error {
 		if reflect.TypeOf(middleware).Kind() != reflect.Ptr {
 			return fmt.Errorf("middleware must be a pointer to a struct")
@@ -90,7 +70,7 @@ func WithMiddleware(middleware Middleware) initOpts {
 func New(opts ...initOpts) (*Toolbox, error) {
 
 	config := &initConfig{
-		middlewareManager: &MiddlewareManager{},
+		middlewareManager: &data.MiddlewareManager{},
 	}
 	for _, opt := range opts {
 		if err := opt(config); err != nil {
@@ -98,100 +78,49 @@ func New(opts ...initOpts) (*Toolbox, error) {
 		}
 	}
 
+	toolbox := &Toolbox{
+		config: config,
+	}
+
 	var err error
 
-	var connectionString string
-	if connectionString, err = ConnectionString(config.db); err != nil {
+	if toolbox.MuxDb, err = config.connector.Open(config.middlewareManager); err != nil {
 		return nil, err
 	}
 
-	slog.Info("connection string ", slog.String("value", connectionString))
-
-	sql.Register(
-		config.db.name,
-		&sqlite3.SQLiteDriver{
-			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-				// register callback
-				conn.RegisterUpdateHook(
-					func(op int, db string, table string, rowid int64) {
-
-						// TODO @droman: i need a tool to unmarshall the rows from `conn` to have match the sql.DB api
-
-						switch op {
-
-						case sqlite3.SQLITE_INSERT:
-							if err := config.middlewareManager.RunOnInsert(conn, db, table, rowid); err != nil {
-								// TODO: Handle error - i have no idea how
-								slog.Error("SQLITE_INSERT error: %v", err)
-							}
-
-						case sqlite3.SQLITE_UPDATE:
-							if err := config.middlewareManager.RunOnUpdate(conn, db, table, rowid); err != nil {
-								// TODO: Handle error - i have no idea how
-								slog.Error("SQLITE_UPDATE error: %v", err)
-							}
-
-						case sqlite3.SQLITE_DELETE:
-							if err := config.middlewareManager.RunOnDelete(conn, db, table, rowid); err != nil {
-								// TODO: Handle error - i have no idea how
-								slog.Error("SQLITE_DELETE error: %v", err)
-							}
-
-						}
-					},
-				)
-
-				return nil
-			}})
-
-	var db *sql.DB
-	if db, err = sql.Open(config.db.name, connectionString); err != nil {
-		return nil, err
+	if toolbox.MuxDb == nil {
+		return nil, fmt.Errorf("sql connector critically failed")
 	}
 
-	// TODO @droman: might only enable that for `memory` mode?
-	db.SetMaxOpenConns(1)
-
-	if err = db.Ping(); err != nil {
+	if err := toolbox.MuxDb.Do(func(db *sql.DB) error {
+		if err := db.Ping(); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 
 	// Initialize middlewares
-	if err := config.middlewareManager.RunOnInit(db); err != nil {
+	if err := config.middlewareManager.RunOnInit(toolbox.MuxDb); err != nil {
 		return nil, err
-	}
-
-	toolbox := &Toolbox{
-		db:     db,
-		config: config,
 	}
 
 	return toolbox, nil
 }
 
 func (t *Toolbox) Close() error {
-
-	if t.db != nil {
-
+	if t.config.connector != nil {
 		// Close middlewares
-		if err := t.config.middlewareManager.RunOnClose(t.db); err != nil {
+		if err := t.config.middlewareManager.RunOnClose(); err != nil {
 			return err
 		}
 
-		// Check if the file exists
-		if _, err := os.Stat(t.config.db.filePath); err == nil {
-			// Remove the file
-			if err := os.Remove(t.config.db.filePath); err != nil {
-				return err
-			}
-		}
-
-		if err := t.db.Close(); err != nil {
+		if err := t.config.connector.Close(); err != nil {
 			return err
 		}
 
-		t.db = nil
+		t.MuxDb.Db.Close()
 	}
-
 	return nil
 }

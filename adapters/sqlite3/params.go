@@ -1,34 +1,8 @@
-package sqlitetoolbox
+package adaptersqlite3
 
 import "fmt"
 
 /// TODO @droman: I enjoy that implementation of options for `sqlite3`, might do them all and make a lib out of it. Other devs might save some time.
-
-type Exposable interface {
-	String(env string) string
-}
-
-// An option can be enabled or not while having a value if enabled
-type Option[T Exposable] struct {
-	Env     string
-	Enabled bool
-	Value   Exposable
-}
-
-func (o *Option[T]) Enable(value T) {
-	o.Enabled = true
-	o.Value = value
-}
-
-func (o Option[T]) String() string {
-	if value := getEnvDefault(o.Env, ""); value != "" {
-		return o.Value.String(value)
-	}
-	if o.Enabled {
-		return o.Value.String("")
-	}
-	return ""
-}
 
 // type to manage the `mode` key in the connection string
 type dbMode string
