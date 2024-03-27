@@ -1,4 +1,4 @@
-module github.com/davidroman0O/sqlite-toolbox
+module github.com/davidroman0O/sql-toolbox
 
 go 1.22.0
 
