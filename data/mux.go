@@ -6,8 +6,14 @@ import (
 )
 
 type MuxDb struct {
-	Db *sql.DB
+	db *sql.DB
 	sync.RWMutex
+}
+
+func (m *MuxDb) Close() {
+	m.RLock()
+	defer m.RUnlock()
+	m.db.Close()
 }
 
 func (m *MuxDb) Do(cb DoFn) error {
@@ -32,9 +38,9 @@ func (m *MuxDb) Do(cb DoFn) error {
 	// }
 	// fmt.Println("count tables", count)
 
-	return cb(m.Db)
+	return cb(m.db)
 }
 
 func NewMuxDb(db *sql.DB) *MuxDb {
-	return &MuxDb{Db: db}
+	return &MuxDb{db: db}
 }

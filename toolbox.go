@@ -10,17 +10,11 @@ import (
 )
 
 type Toolbox struct {
-	// db     *sql.DB
 	*data.MuxDb
 	config *initConfig
 }
 
-// func (t *Toolbox) Do(cb data.DoFn) error {
-// 	return cb(t.db)
-// }
-
-type findConfig struct {
-}
+type findConfig struct{}
 
 type findOptions func(*findConfig) error
 
@@ -120,7 +114,7 @@ func (t *Toolbox) Close() error {
 			return err
 		}
 
-		t.MuxDb.Db.Close()
+		t.MuxDb.Close()
 	}
 	return nil
 }
