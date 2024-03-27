@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/davidroman0O/sqlite-toolbox/data"
+	"github.com/davidroman0O/sql-toolbox/data"
 	"github.com/mattn/go-sqlite3"
 )
 

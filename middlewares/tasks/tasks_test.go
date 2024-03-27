@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidroman0O/sqlite-toolbox/data"
+	"github.com/davidroman0O/sql-toolbox/data"
 	"github.com/k0kubun/pp/v3"
 	"github.com/mattn/go-sqlite3"
 )

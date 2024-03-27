@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/davidroman0O/sqlite-toolbox/rows"
+	"github.com/davidroman0O/sql-toolbox/rows"
 	"github.com/mattn/go-sqlite3"
 	"github.com/robfig/cron/v3"
 )

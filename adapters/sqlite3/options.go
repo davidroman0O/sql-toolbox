@@ -3,7 +3,7 @@ package adaptersqlite3
 import (
 	"fmt"
 
-	"github.com/davidroman0O/sqlite-toolbox/data"
+	"github.com/davidroman0O/sql-toolbox/data"
 )
 
 // Configuration for the database connection

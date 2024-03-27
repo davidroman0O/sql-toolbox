@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"reflect"
 
-	adaptersqlite3 "github.com/davidroman0O/sqlite-toolbox/adapters/sqlite3"
-	"github.com/davidroman0O/sqlite-toolbox/data"
+	adaptersqlite3 "github.com/davidroman0O/sql-toolbox/adapters/sqlite3"
+	"github.com/davidroman0O/sql-toolbox/data"
 )
 
 type Toolbox struct {

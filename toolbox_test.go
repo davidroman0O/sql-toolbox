@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	adaptersqlite3 "github.com/davidroman0O/sqlite-toolbox/adapters/sqlite3"
-	"github.com/davidroman0O/sqlite-toolbox/middlewares/logger"
-	"github.com/davidroman0O/sqlite-toolbox/middlewares/tasks"
+	adaptersqlite3 "github.com/davidroman0O/sql-toolbox/adapters/sqlite3"
+	"github.com/davidroman0O/sql-toolbox/middlewares/logger"
+	"github.com/davidroman0O/sql-toolbox/middlewares/tasks"
 	"github.com/k0kubun/pp/v3"
 )
 
