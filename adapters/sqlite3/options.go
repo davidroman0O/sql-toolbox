@@ -77,6 +77,7 @@ func WithFile() []SqliteOption {
 		DBWithMode(OpenCreateReadWrite),
 		DBWithName("db"),
 		DBWithCacheShared(),
+		DBWithFile(".", "db"),
 	}
 	return opts
 }
